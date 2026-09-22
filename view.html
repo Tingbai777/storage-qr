@@ -31,7 +31,12 @@
   // 数据源：WorkBuddy 托管的公开读接口（CORS 已放开，任意域名可跨域读取）
   var API = "https://storage-qr.app.workbuddy.host/api/boxes";
   function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];});}
-  function idFromUrl(){var m=location.search.match(/[?&]id=([^&]+)/);return m?decodeURIComponent(m[1]):"";}
+  function idFromUrl(){
+    var h=location.hash.replace(/^#\/?/,"");        // 支持 #B-01 与 #/B-01
+    if(h)return decodeURIComponent(h);
+    var m=location.search.match(/[?&]id=([^&]+)/);  // 兼容旧 ?id= 形式
+    return m?decodeURIComponent(m[1]):"";
+  }
   function photoSrc(u){if(/^https?:\/\//.test(u))return u;return API.replace(/\/api\/boxes$/,"")+"/"+u.replace(/^\//,"");}
   function render(box){
     var h='<span class="pub-id">箱号 '+esc(box.id)+'</span>';
@@ -49,7 +54,8 @@
   (function(){
     var id=idFromUrl();
     if(!id){document.getElementById("card").innerHTML='<p class="err">链接缺少箱子编号（?id=）</p>';return;}
-    fetch(API,{cache:"no-store"}).then(function(r){return r.json();}).then(function(list){
+    fetch(API,{cache:"no-store"}).then(function(r){return r.text();}).then(function(txt){
+      var list; try{ list=JSON.parse(txt); }catch(e){ throw new Error("返回内容不是有效数据"); }
       var box=(list||[]).filter(function(x){return x.id===id;})[0];
       if(!box){document.getElementById("card").innerHTML='<p class="err">未找到箱子 '+esc(id)+"</p>";return;}
       render(box);
