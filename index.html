@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>收纳箱管理</title>
+<link rel="stylesheet" href="./style.css" />
+<script src="./qrcode.js"></script>
+</head>
+<body>
+<div id="app">
+
+  <!-- 管理端 -->
+  <section id="admin-view">
+    <header class="adm-header">
+      <h1>收纳箱管理</h1>
+      <div class="adm-actions">
+        <button class="btn ghost" id="btn-settings">⚙ GitHub</button>
+        <button class="btn primary" id="btn-add">＋ 新建箱子</button>
+      </div>
+    </header>
+
+    <div id="box-list" class="box-list"></div>
+  </section>
+
+  <!-- 设置弹窗 -->
+  <div id="settings-modal" class="modal hidden">
+    <div class="modal-card">
+      <h2>GitHub 同步设置</h2>
+      <p class="hint">数据保存在仓库的 <b>boxes.json</b> 里。填好下面三项后，点「保存箱子」会自动提交到 GitHub（无需手动上传）。留空则改为「下载 boxes.json」手动上传。</p>
+      <label>仓库（owner/repo）<input id="cfg-repo" placeholder="如 Tingbai777/storage-qr" /></label>
+      <label>分支 <input id="cfg-branch" placeholder="main" /></label>
+      <label>Token（Fine-grained，仅 contents 写权限）<input id="cfg-token" type="password" placeholder="github_pat_..." /></label>
+      <p class="hint">Token 仅存在本机浏览器，不会上传给任何第三方。</p>
+      <div class="modal-actions">
+        <button class="btn ghost" id="btn-cfg-cancel">取消</button>
+        <button class="btn primary" id="btn-cfg-save">保存设置</button>
+      </div>
+
+      <h3>备份</h3>
+      <p class="hint">随时把当前数据导出成本机文件；或导入还原。</p>
+      <div class="modal-actions">
+        <button class="btn ghost" id="btn-export">导出备份</button>
+        <button class="btn ghost" id="btn-import">导入备份</button>
+        <input type="file" id="f-import" accept=".json,application/json" class="hidden" />
+      </div>
+      <div id="sync-status" class="sync-status"></div>
+    </div>
+  </div>
+
+  <!-- 编辑弹窗 -->
+  <div id="edit-modal" class="modal hidden">
+    <div class="modal-card wide">
+      <h2 id="edit-title">编辑箱子</h2>
+      <label>箱子编号 *<input id="f-id" placeholder="如 B-01" /></label>
+      <label>名称 <input id="f-name" placeholder="如 换季衣物" /></label>
+      <label>存放位置 <input id="f-loc" placeholder="如 主卧衣柜顶层" /></label>
+      <label>备注 <textarea id="f-note" rows="2" placeholder="如 2026 秋"></textarea></label>
+
+      <h3>物品清单</h3>
+      <div id="item-rows" class="item-rows"></div>
+      <button class="btn ghost sm" id="btn-add-item">＋ 加一行</button>
+
+      <h3>照片</h3>
+      <p class="hint">照片会以图片形式内嵌进 boxes.json（自动压缩到 1000px 宽），微信扫码可直接显示。</p>
+      <input type="file" id="f-photo" accept="image/*" multiple />
+      <div id="photo-prevs" class="photo-prevs"></div>
+
+      <div class="modal-actions">
+        <button class="btn danger ghost" id="btn-del">删除此箱</button>
+        <span class="spacer"></span>
+        <button class="btn ghost" id="btn-edit-cancel">取消</button>
+        <button class="btn primary" id="btn-edit-save">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 二维码弹窗 -->
+  <div id="qr-modal" class="modal hidden">
+    <div class="modal-card center">
+      <h2 id="qr-title">二维码</h2>
+      <img id="qr-img" class="qr-img" alt="二维码" />
+      <p class="hint" id="qr-link"></p>
+      <p class="hint">此二维码指向同仓库的 view.html，微信可<b>直接扫开</b>（无需在浏览器打开）。</p>
+      <div class="modal-actions center">
+        <button class="btn ghost" id="btn-qr-close">关闭</button>
+        <a class="btn primary" id="btn-qr-dl" download="qrcode.png">下载 PNG</a>
+      </div>
+      <p class="hint">打印贴箱外，手机一扫即开此箱页面。</p>
+    </div>
+  </div>
+
+  <div id="toast" class="toast hidden"></div>
+</div>
+<script src="./app.js"></script>
+</body>
+</html>
