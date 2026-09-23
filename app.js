@@ -1,4 +1,4 @@
-/* 收纳箱管理 — 纯静态版（无服务器）
+/* 收纳箱管理 — 纯静态版（无服务器） v20260922
  * - 数据：同目录 boxes.json（同源，微信可直接读）
  * - 保存：填了 GitHub Token 就自动提交到仓库；没填就下载 boxes.json 让你手动上传
  * - 照片：自动压缩后内嵌进 boxes.json（base64），微信扫码直接显示
@@ -11,7 +11,9 @@
   var boxes = [];
   var editing = null;       // 当前编辑中的箱子（深拷贝）
   var editIsNew = true;
+  var editOrigId = "";      // 编辑前的原始编号（用于重名校验与改编号时定位旧记录）
   var pendingPhotos = [];   // 本次新增的照片（base64）
+  var saving = false;       // 防连点：一次提交没走完前不接受第二次
 
   /* ---------------- 存储 ---------------- */
   function getGh() {
@@ -63,8 +65,11 @@
         body: JSON.stringify(body)
       }).then(function (r) {
         if (r.ok) { toast("已同步到 GitHub ✅"); setSyncStatus("上次同步：" + new Date().toLocaleString()); }
-        else { r.json().then(function (j) { toast("同步失败：" + (j.message || r.status), 5000); }).catch(function () { toast("同步失败：" + r.status, 5000); }); }
-      }).catch(function (e) { toast("同步失败：" + (e.message || e), 5000); });
+        else {
+          var fail = function (msg) { toast("同步失败：" + msg + " —— 数据还没传到线上，请再点一次「保存」（先别刷新）", 6000); };
+          r.json().then(function (j) { fail(j.message || r.status); }).catch(function () { fail(r.status); });
+        }
+      }).catch(function (e) { toast("同步失败：" + (e.message || e) + " —— 数据还没传到线上，请再点一次「保存」（先别刷新）", 6000); });
     };
     // 先取 sha（已存在则更新，否则新建）
     fetch(url + "?ref=" + encodeURIComponent(branch), { headers: { Authorization: "Bearer " + cfg.token } })
@@ -102,6 +107,7 @@
   /* ---------------- 编辑 ---------------- */
   function openEdit(id) {
     editIsNew = !id;
+    editOrigId = id ? String(id).trim() : "";
     pendingPhotos = [];
     if (editIsNew) {
       editing = { id: "", name: "", location: "", note: "", items: [], photos: [] };
@@ -164,7 +170,8 @@
   function saveEdit() {
     var id = ($("f-id").value || "").trim();
     if (!id) { toast("请填写箱子编号"); return; }
-    var dup = boxes.filter(function (b) { return b.id === id && b.id !== (editing._origId || ""); }).length;
+    // 重名校验：排除自己（编辑时正在改的那条）
+    var dup = boxes.some(function (b) { return b.id === id && b.id !== editOrigId; });
     if (dup) { toast("编号 " + id + " 已存在，换个编号"); return; }
 
     editing.id = id;
@@ -186,7 +193,11 @@
     editing.updatedAt = new Date().toISOString();
 
     var list = boxes.slice();
-    var i = list.map(function (b) { return b.id; }).indexOf(id);
+    // 定位原记录：改过编号时按 editOrigId 找（否则会变成"新增一条 + 旧的残留"）
+    var i = -1;
+    for (var k = 0; k < list.length; k++) {
+      if ((editOrigId && list[k].id === editOrigId) || list[k].id === id) { i = k; break; }
+    }
     if (i >= 0) list[i] = editing; else list.push(editing);
     boxes = list;
     $("edit-modal").classList.add("hidden");
@@ -278,7 +289,13 @@
     };
 
     $("btn-edit-cancel").onclick = function () { $("edit-modal").classList.add("hidden"); };
-    $("btn-edit-save").onclick = saveEdit;
+    // 防连点：连点两次会用同一个旧 sha 提交，第二次必被 GitHub 拒（409 冲突）
+    $("btn-edit-save").onclick = function () {
+      if (saving) return;
+      saving = true;
+      saveEdit();
+      setTimeout(function () { saving = false; }, 1200);
+    };
     $("btn-del").onclick = function () {
       if (editing && editing.id && confirm("确定删除箱子 " + editing.id + "？")) {
         boxes = boxes.filter(function (b) { return b.id !== editing.id; });
